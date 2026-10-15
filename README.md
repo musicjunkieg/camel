@@ -214,6 +214,36 @@ To enable basic authentication, two environment variables are required:
 By default, the `/render-draft` endpoint requires basic auth to actually render a draft
 post.
 
+### standard.site (AT Protocol)
+
+Camel can publish every post as a [standard.site](https://standard.site) record on
+AT Protocol, so Bluesky and other atproto apps can show rich cards for your posts and
+index them. The records live in your account's repository, so that account is the
+author.
+
+1. Create an app password for your Bluesky/atproto account and set three environment
+   variables:
+   * `ATP_IDENTIFIER` - your handle or DID
+   * `ATP_APP_PASSWORD` - the app password
+   * `ATP_SERVICE` - optional; your PDS URL. Defaults to `https://bsky.social`.
+2. Make sure `SiteRoot` in `defaultTags.html` is your real public URL.
+3. Run `npm run standard-site:init` once. It creates the publication record and prints
+   a line like `@@ StandardSitePublication=at://did:plc:…/site.standard.publication/…`.
+   Add that line to `defaultTags.html` and deploy.
+4. Run `npm run standard-site:sync`. On Heroku this runs automatically on each deploy
+   (the `release` line in `Procfile`). Use `--dry-run` to see what would change.
+
+Once `StandardSitePublication` is set, Camel serves `/.well-known/site.standard.publication`
+and adds the verification `<link>` tags to each page's `<head>`.
+
+The sync creates a record for each new post, updates records for changed posts, and
+deletes records for posts that were removed. It checks each record before writing,
+because PDSes store these records without checking them. To credit co-authors, add
+`@@ Contributors=did:plc:…, did:plc:…` to a post.
+
+Each record's key is derived from the post's date and URL. Changing either one replaces
+the record with a new one, which breaks existing Bluesky embeds of that post.
+
 
 # Quirks
 
