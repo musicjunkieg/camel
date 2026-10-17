@@ -241,6 +241,12 @@ deletes records for posts that were removed. It checks each record before writin
 because PDSes store these records without checking them. To credit co-authors, add
 `@@ Contributors=did:plc:…, did:plc:…` to a post.
 
+A post's `@@ Image` becomes its cover image, which apps show on the post's card.
+Images on your own site (`/images/…` or `SiteRoot/images/…`) are read from `public/`;
+other URLs are downloaded. Covers must be PNG, JPEG, GIF or WebP and at most 1 MB.
+An image is only uploaded again when it changes. The site-wide `@@ Image` in
+`defaultTags.html` is not used as a cover.
+
 Each record's key is derived from the post's date and URL. Changing either one replaces
 the record with a new one, which breaks existing Bluesky embeds of that post.
 

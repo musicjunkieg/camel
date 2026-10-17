@@ -16,10 +16,12 @@
 //
 // The records are written to ATP_IDENTIFIER's repository, so that account is
 // the author. Add co-authors to a post with "@@ Contributors=did:plc:…, did:plc:…".
+// A post's "@@ Image" (at most 1 MB) is uploaded as its cover image.
 
 var fs = require('fs');
 var path = require('path');
 var AtpAgent = require('@atproto/api').AtpAgent;
+var lexToJson = require('@atproto/api').lexToJson;
 var camel = require('../camel');
 var standardSite = require('../lib/standard-site');
 var _ = require('underscore');
@@ -29,7 +31,7 @@ var dryRun = args.includes('--dry-run');
 var init = args.includes('--init');
 
 // Document fields this script doesn't manage; kept as-is on update.
-var preservedFields = ['bskyPostRef', 'coverImage', 'tags', 'labels', 'links'];
+var preservedFields = ['bskyPostRef', 'tags', 'labels', 'links'];
 
 function log(message) {
 	console.log('[standard.site] ' + message);
@@ -61,6 +63,8 @@ function collectPosts(siteMetadata) {
 			return {
 				file: file,
 				publishedAt: publishedAt,
+				// The site-wide default image isn't a cover for every post.
+				image: metadata.Image && metadata.Image !== siteMetadata.Image ? metadata.Image.trim() : '',
 				rkey: standardSite.documentRkey(publishedAt, metadata.relativeLink),
 				record: standardSite.buildDocument({
 					publicationUri: siteMetadata.StandardSitePublication.trim(),
@@ -75,6 +79,69 @@ function collectPosts(siteMetadata) {
 			};
 		})
 		.filter(function (post) { return post.publishedAt <= now; });
+}
+
+// Reads a post's @@ Image. Paths on this site come from public/, since the
+// deploy carrying them may not be live yet; other URLs are downloaded.
+async function loadImage(image, siteRoot) {
+	var root = (siteRoot || '').replace(/\/+$/, '');
+	var localPath = null;
+	if (image[0] === '/' && image[1] !== '/') {
+		localPath = image;
+	} else if (root && image.startsWith(root + '/')) {
+		localPath = image.slice(root.length);
+	}
+	if (localPath !== null) {
+		var publicRoot = path.resolve('public');
+		var file = path.resolve(publicRoot, '.' + decodeURIComponent(localPath.split(/[?#]/)[0]));
+		if (!file.startsWith(publicRoot + path.sep)) {
+			throw new Error(image + ' is outside public/');
+		}
+		if (fs.existsSync(file)) {
+			return fs.readFileSync(file);
+		}
+		if (image[0] === '/') {
+			throw new Error(file + ' not found');
+		}
+	}
+	var url = image.startsWith('//') ? 'https:' + image : image;
+	var response = await fetch(url, { signal: AbortSignal.timeout(15000) });
+	if (!response.ok) {
+		throw new Error('HTTP ' + response.status);
+	}
+	return Buffer.from(await response.arrayBuffer());
+}
+
+// The coverImage for a post, as { blob, bytes } (bytes only when it still
+// needs uploading), { keep: true } to leave the published one alone after a
+// transient failure, or {} for none.
+async function coverImageFor(post, current, siteRoot) {
+	if (!post.image) {
+		return {};
+	}
+	var bytes;
+	try {
+		bytes = await loadImage(post.image, siteRoot);
+	} catch (error) {
+		log('Warning: ' + post.file + ': could not read image ' + post.image + ' (' + error.message + '); keeping the published cover, if any.');
+		return { keep: true };
+	}
+	var mimeType = standardSite.sniffImageType(bytes);
+	if (!mimeType) {
+		log('Warning: ' + post.file + ': ' + post.image + ' is not a PNG, JPEG, GIF or WebP image; skipping the cover.');
+		return {};
+	}
+	if (bytes.length > standardSite.MAX_BLOB_SIZE) {
+		log('Warning: ' + post.file + ': ' + post.image + ' is ' + bytes.length + ' bytes; covers must be at most ' +
+			standardSite.MAX_BLOB_SIZE + '. Skipping the cover.');
+		return {};
+	}
+	var cid = standardSite.blobCid(bytes);
+	var published = current && current.value.coverImage;
+	if (published && published.ref && published.ref.$link === cid) {
+		return { blob: published };
+	}
+	return { blob: { $type: 'blob', ref: { $link: cid }, mimeType: mimeType, size: bytes.length }, bytes: bytes };
 }
 
 // Record equality, ignoring key order and updatedAt.
@@ -95,7 +162,10 @@ async function listAll(agent, did, collection) {
 	var cursor;
 	do {
 		var response = await agent.com.atproto.repo.listRecords({ repo: did, collection: collection, limit: 100, cursor: cursor });
-		records = records.concat(response.data.records);
+		// The client decodes blobs and CIDs into objects; compare records as plain JSON.
+		records = records.concat(response.data.records.map(function (record) {
+			return Object.assign({}, record, { value: lexToJson(record.value) });
+		}));
 		cursor = response.data.cursor;
 	} while (cursor);
 	return records;
@@ -158,8 +228,9 @@ async function sync(agent, siteMetadata) {
 	var existingPublication = await agent.com.atproto.repo.getRecord({
 		repo: publication.did, collection: standardSite.PUBLICATION_COLLECTION, rkey: publication.rkey
 	});
-	var mergedPublication = Object.assign({}, existingPublication.data.value, publicationRecord);
-	if (canonical(mergedPublication) !== canonical(existingPublication.data.value)) {
+	var publicationValue = lexToJson(existingPublication.data.value);
+	var mergedPublication = Object.assign({}, publicationValue, publicationRecord);
+	if (canonical(mergedPublication) !== canonical(publicationValue)) {
 		log((dryRun ? 'Would update' : 'Updating') + ' publication ' + publicationUri);
 		if (!dryRun) {
 			await agent.com.atproto.repo.putRecord({
@@ -181,10 +252,16 @@ async function sync(agent, siteMetadata) {
 		var post = posts[i];
 		var current = existing[post.rkey];
 		delete existing[post.rkey];
-		var record = post.record;
+		var record = Object.assign({}, post.record);
+		var cover = await coverImageFor(post, current, siteMetadata.SiteRoot);
+		if (cover.blob) {
+			record.coverImage = cover.blob;
+		} else if (cover.keep && current && current.value.coverImage) {
+			record.coverImage = current.value.coverImage;
+		}
 		if (current) {
 			// Keep fields this script never sets but other tools may have added.
-			record = Object.assign(_.pick(current.value, preservedFields), post.record);
+			record = Object.assign(_.pick(current.value, preservedFields), record);
 			if (canonical(record) === canonical(current.value)) {
 				counts.unchanged += 1;
 				continue;
@@ -194,6 +271,13 @@ async function sync(agent, siteMetadata) {
 		counts[current ? 'updated' : 'created'] += 1;
 		log((dryRun ? 'Would ' : '') + (current ? 'update ' : 'create ') + post.rkey + ' ' + post.record.path);
 		if (!dryRun) {
+			if (cover.bytes) {
+				var uploaded = await agent.com.atproto.repo.uploadBlob(cover.bytes, { encoding: cover.blob.mimeType });
+				record.coverImage = lexToJson(uploaded.data.blob);
+				if (record.coverImage.ref.$link !== cover.blob.ref.$link) {
+					log('Warning: ' + post.file + ': the PDS stored the cover as ' + record.coverImage.ref.$link + ', not ' + cover.blob.ref.$link);
+				}
+			}
 			await agent.com.atproto.repo.putRecord({
 				repo: publication.did, collection: standardSite.DOCUMENT_COLLECTION, rkey: post.rkey,
 				record: record, swapRecord: current ? current.cid : null
