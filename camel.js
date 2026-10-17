@@ -261,7 +261,8 @@ function allPostsSortedAndGrouped(completion) {
             files = files.map(function(f) { return postsRoot + f; }).filter(function(f) { return postRegex.test(f); });
             // Lump the posts together by day
             var groupedFiles = _.groupBy(files, function (file) {
-                var parts = file.split('/');
+                // file looks like ./posts/2014/5/1/slug.md
+                var parts = /posts\/(\d{4})\/(\d{1,2})\/(\d{1,2})\//.exec(file);
                 return new Date(parts[1], parts[2] - 1, parts[3]);
             });
 
