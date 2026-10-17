@@ -231,7 +231,9 @@ author.
    a line like `@@ StandardSitePublication=at://did:plc:…/site.standard.publication/…`.
    Add that line to `defaultTags.html` and deploy.
 4. Run `npm run standard-site:sync`. On Heroku this runs automatically on each deploy
-   (the `release` line in `Procfile`). Use `--dry-run` to see what would change.
+   (the `release` line in `Procfile`); there, login or PDS errors only log a warning so
+   they can't block a deploy, but invalid posts still fail it. Use `--dry-run` to see
+   what would change.
 
 Once `StandardSitePublication` is set, Camel serves `/.well-known/site.standard.publication`
 and adds the verification `<link>` tags to each page's `<head>`.

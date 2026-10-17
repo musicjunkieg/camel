@@ -8,6 +8,7 @@
 //   node scripts/standard-site-sync.js --init     create the publication record (once)
 //   node scripts/standard-site-sync.js            sync all posts
 //   node scripts/standard-site-sync.js --dry-run  show what would change
+//   node scripts/standard-site-sync.js --release  as sync, but only warn on login/PDS errors
 //
 // Environment:
 //   ATP_IDENTIFIER    handle or DID of the account that owns the records
@@ -29,6 +30,9 @@ var _ = require('underscore');
 var args = process.argv.slice(2);
 var dryRun = args.includes('--dry-run');
 var init = args.includes('--init');
+// The Heroku release phase passes --release: invalid posts still fail the
+// deploy, but login and PDS errors only warn, so an outage can't block it.
+var release = args.includes('--release');
 
 // Document fields this script doesn't manage; kept as-is on update.
 var preservedFields = ['bskyPostRef', 'tags', 'labels', 'links'];
@@ -195,13 +199,8 @@ async function createPublication(agent, siteMetadata) {
 	console.log('@@ StandardSitePublication=' + response.data.uri);
 }
 
-async function sync(agent, siteMetadata) {
-	var publicationUri = siteMetadata.StandardSitePublication.trim();
-	var publication = standardSite.parseAtUri(publicationUri);
-	if (agent && publication.did !== agent.session.did) {
-		throw new Error('StandardSitePublication belongs to ' + publication.did + ' but ATP_IDENTIFIER is ' + agent.session.did);
-	}
-
+// Reads and checks every post. Throws if any record would be invalid.
+function preparePosts(siteMetadata) {
 	var posts = collectPosts(siteMetadata);
 	var problems = [];
 	var seen = {};
@@ -217,10 +216,14 @@ async function sync(agent, siteMetadata) {
 	if (problems.length > 0) {
 		throw new Error('Not publishing; fix these first:\n  ' + problems.join('\n  '));
 	}
+	return posts;
+}
 
-	if (!agent) {
-		log(posts.length + ' posts are valid. Set ATP_IDENTIFIER and ATP_APP_PASSWORD to publish them.');
-		return;
+async function sync(agent, siteMetadata, posts) {
+	var publicationUri = siteMetadata.StandardSitePublication.trim();
+	var publication = standardSite.parseAtUri(publicationUri);
+	if (publication.did !== agent.session.did) {
+		throw new Error('StandardSitePublication belongs to ' + publication.did + ' but ATP_IDENTIFIER is ' + agent.session.did);
 	}
 
 	// Keep the publication record's name and url in step with the site.
@@ -327,8 +330,20 @@ async function main() {
 		log('StandardSitePublication is not set in templates/defaultTags.html; skipping. Run with --init to set it up.');
 		return;
 	}
-	agent = await login();
-	await sync(agent, siteMetadata);
+	var posts = preparePosts(siteMetadata);
+	try {
+		agent = await login();
+		if (!agent) {
+			log(posts.length + ' posts are valid. Set ATP_IDENTIFIER and ATP_APP_PASSWORD to publish them.');
+			return;
+		}
+		await sync(agent, siteMetadata, posts);
+	} catch (error) {
+		if (!release) {
+			throw error;
+		}
+		log('Warning: sync failed; deploying anyway. Run npm run standard-site:sync to retry. (' + (error.message || error) + ')');
+	}
 }
 
 main().catch(function (error) {

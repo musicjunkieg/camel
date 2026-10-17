@@ -71,6 +71,6 @@
     "underscore": "^1.13.3"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   }
 }
