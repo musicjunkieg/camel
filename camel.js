@@ -208,10 +208,12 @@ function generateHtmlAndMetadataForLines(lines, file) {
 		// If this is a post, assume a body class of 'post'.
 		if (postRegex.test(file)) {
 			metadata.BodyClass = 'post';
-			metadata.StandardSiteLinks = standardSite.linkTags(siteMetadata.StandardSitePublication,
+			// A scheduled post is still reachable by URL, but has no record yet.
+			var documentUri = standardSite.folderDayHasArrived(normalizedFileName(file)) ?
 				standardSite.documentUri(siteMetadata.StandardSitePublication,
 					standardSite.publishedAtFor(metadata, normalizedFileName(file), utcOffset),
-					metadata.relativeLink));
+					metadata.relativeLink) : null;
+			metadata.StandardSiteLinks = standardSite.linkTags(siteMetadata.StandardSitePublication, documentUri);
 		}
 	}
 

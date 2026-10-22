@@ -37,6 +37,14 @@ var release = args.includes('--release');
 // Document fields this script doesn't manage; kept as-is on update.
 var preservedFields = ['bskyPostRef', 'tags', 'labels', 'links'];
 
+// An error that must fail the sync even in --release mode: a configuration or
+// safety problem, not a transient login or PDS failure.
+function fatalError(message) {
+	var error = new Error(message);
+	error.fatal = true;
+	return error;
+}
+
 function log(message) {
 	console.log('[standard.site] ' + message);
 }
@@ -82,13 +90,9 @@ function collectPosts(siteMetadata) {
 				})
 			};
 		})
-		// Same rule camel.js uses to hide scheduled posts: the folder's day
-		// (local midnight) must not be in the future. A post visible on the
-		// site must have a record, or its <link> tag points at nothing.
-		.filter(function (post) {
-			var parts = /posts\/(\d{4})\/(\d{1,2})\/(\d{1,2})\//.exec(post.file);
-			return new Date(parts[1], parts[2] - 1, parts[3]) <= now;
-		});
+		// Same rule camel.js uses to hide scheduled posts, so every post it
+		// lists has a record.
+		.filter(function (post) { return standardSite.folderDayHasArrived(post.file, now); });
 }
 
 // Reads a post's @@ Image. Paths on this site come from public/, since the
@@ -229,7 +233,7 @@ async function sync(agent, siteMetadata, posts) {
 	var publicationUri = siteMetadata.StandardSitePublication.trim();
 	var publication = standardSite.parseAtUri(publicationUri);
 	if (publication.did !== agent.session.did) {
-		throw new Error('StandardSitePublication belongs to ' + publication.did + ' but ATP_IDENTIFIER is ' + agent.session.did);
+		throw fatalError('StandardSitePublication belongs to ' + publication.did + ' but ATP_IDENTIFIER is ' + agent.session.did);
 	}
 
 	// Keep the publication record's name and url in step with the site.
@@ -298,7 +302,7 @@ async function sync(agent, siteMetadata, posts) {
 	// renamed, or re-dated posts.
 	var orphans = Object.keys(existing);
 	if (orphans.length > 0 && posts.length === 0) {
-		throw new Error('Found no posts but ' + orphans.length + ' published records; refusing to delete them all.');
+		throw fatalError('Found no posts but ' + orphans.length + ' published records; refusing to delete them all.');
 	}
 	for (var j = 0; j < orphans.length; j++) {
 		counts.deleted += 1;
@@ -345,7 +349,7 @@ async function main() {
 		}
 		await sync(agent, siteMetadata, posts);
 	} catch (error) {
-		if (!release) {
+		if (!release || error.fatal) {
 			throw error;
 		}
 		log('Warning: sync failed; deploying anyway. Run npm run standard-site:sync to retry. (' + (error.message || error) + ')');
