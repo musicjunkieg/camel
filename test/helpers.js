@@ -146,6 +146,11 @@ function startMockPds() {
 				records[key(body.collection, rkey)] = body.record;
 				return send({ uri: 'at://' + PUBLICATION_DID + '/' + key(body.collection, rkey), cid: cid });
 			case 'com.atproto.repo.putRecord':
+				// Like a real PDS: swapRecord null means "only if it doesn't exist yet".
+				if (body.swapRecord === null && records[key(body.collection, body.rkey)]) {
+					response.statusCode = 400;
+					return send({ error: 'InvalidSwap', message: 'Record was at ' + cid });
+				}
 				records[key(body.collection, body.rkey)] = body.record;
 				return send({ uri: 'at://' + PUBLICATION_DID + '/' + key(body.collection, body.rkey), cid: cid });
 			case 'com.atproto.repo.deleteRecord':

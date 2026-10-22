@@ -23,11 +23,14 @@ test('encodeTid round-trips its timestamp and clock id', function () {
 	assert.deepStrictEqual(decodeTid(tid), { microseconds: 1704067200000000, clockId: 513 });
 });
 
-test('documentRkey is stable, timestamped by the publish date, and differs by path', function () {
+test('documentRkey is stable, timestamped by the publish date, and differs by path and publication', function () {
 	var date = new Date('2024-01-01T12:00:00Z');
-	var a = standardSite.documentRkey(date, '/2024/1/1/one');
-	assert.strictEqual(a, standardSite.documentRkey(date, '/2024/1/1/one'));
-	assert.notStrictEqual(a, standardSite.documentRkey(date, '/2024/1/1/two'));
+	var pub = helpers.PUBLICATION_URI;
+	var a = standardSite.documentRkey(pub, date, '/2024/1/1/one');
+	assert.strictEqual(a, standardSite.documentRkey(pub, date, '/2024/1/1/one'));
+	assert.notStrictEqual(a, standardSite.documentRkey(pub, date, '/2024/1/1/two'));
+	// A second publication in the same account must not reuse the first one's keys.
+	assert.notStrictEqual(a, standardSite.documentRkey(pub.replace(/[^/]+$/, '3lwafzkjqm26s'), date, '/2024/1/1/one'));
 	// The timestamp part is the publish date, give or take the sub-millisecond digits.
 	assert.strictEqual(Math.floor(decodeTid(a).microseconds / 1000), date.getTime());
 });

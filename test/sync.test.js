@@ -98,6 +98,24 @@ test('updates an edited post and deletes a removed one', async function (t) {
 	assert.ok(!env.pds.documents().some(function (d) { return d.path === '/2016/3/4/extra'; }));
 });
 
+test('a second publication in the same account gets its own records', async function (t) {
+	// As if --init were run again: same account and posts, new publication.
+	var env = await setUp(t);
+	await helpers.runSync(env.site, [], syncEnv(env.pds));
+	var second = helpers.PUBLICATION_URI.replace(/[^/]+$/, '3lwafzkjqm26s');
+	env.pds.records['site.standard.publication/3lwafzkjqm26s'] = { $type: 'site.standard.publication', name: 'Again', url: 'https://blog.example' };
+	var tags = require('path').join(env.site.dir, 'templates', 'defaultTags.html');
+	var fs = require('fs');
+	fs.writeFileSync(tags, fs.readFileSync(tags, 'utf8').replace(helpers.PUBLICATION_URI, second));
+
+	var result = await helpers.runSync(env.site, [], syncEnv(env.pds));
+	assert.strictEqual(result.code, 0, result.output);
+	assert.match(result.output, /2 created, 0 updated, 0 unchanged, 0 deleted/);
+	var sites = env.pds.documents().map(function (d) { return d.site; });
+	assert.strictEqual(sites.filter(function (s) { return s === helpers.PUBLICATION_URI; }).length, 2);
+	assert.strictEqual(sites.filter(function (s) { return s === second; }).length, 2);
+});
+
 test('leaves records from other publications alone', async function (t) {
 	var env = await setUp(t);
 	env.pds.records['site.standard.document/3zzzzzzzzzzzz'] = {
