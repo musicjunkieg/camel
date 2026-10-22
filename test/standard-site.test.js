@@ -114,6 +114,14 @@ test('validateDocument reports each broken field', function () {
 	]);
 });
 
+test('validateDocument reports missing content instead of throwing', function () {
+	var base = { site: helpers.PUBLICATION_URI, title: 'T', path: '/a', publishedAt: '2024-01-01T00:00:00Z' };
+	[undefined, {}, { text: null }].forEach(function (content) {
+		assert.deepStrictEqual(standardSite.validateDocument(Object.assign({ content: content }, base), '3khuwc44cas67'),
+			['content.text.markdown is required']);
+	});
+});
+
 test('validateDocument enforces the lexicon length limits', function () {
 	var record = standardSite.buildDocument({
 		publicationUri: helpers.PUBLICATION_URI, title: 'x'.repeat(501), path: '/a',
