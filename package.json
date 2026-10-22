@@ -52,7 +52,7 @@
     "start": "nodemon ./camel.js",
     "standard-site:init": "node scripts/standard-site-sync.js --init",
     "standard-site:sync": "node scripts/standard-site-sync.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test test/*.test.js"
   },
   "license": "MIT",
   "dependencies": {
