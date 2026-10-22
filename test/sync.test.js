@@ -166,6 +166,22 @@ test('--release only warns when login or the PDS fails; a manual run fails', asy
 	assert.match(manual.output, /Invalid identifier or password/);
 });
 
+test('publishes posts whose folder day has arrived, like camel.js shows them', async function (t) {
+	var env = await setUp(t);
+	var pad = function (n) { return String(n).padStart(2, '0'); };
+	var today = new Date();
+	var tomorrow = new Date(today.getTime() + 86400000);
+	var folder = function (d) { return d.getFullYear() + '/' + (d.getMonth() + 1) + '/' + d.getDate(); };
+	var stamp = function (d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); };
+	// Later today: camel.js already shows it, so it needs a record now.
+	env.site.writePost(folder(today) + '/later-today.md', '@@ Title=Later\n@@ Date=' + stamp(today) + ' 23:59\n\nSoon.\n');
+	env.site.writePost(folder(tomorrow) + '/tomorrow.md', '@@ Title=Tomorrow\n@@ Date=' + stamp(tomorrow) + ' 09:00\n\nLater.\n');
+	await helpers.runSync(env.site, [], syncEnv(env.pds));
+	var paths = env.pds.documents().map(function (d) { return d.path; });
+	assert.ok(paths.includes('/' + folder(today) + '/later-today'));
+	assert.ok(!paths.includes('/' + folder(tomorrow) + '/tomorrow'));
+});
+
 test('--dry-run writes nothing', async function (t) {
 	var env = await setUp(t);
 	var result = await helpers.runSync(env.site, ['--dry-run'], syncEnv(env.pds));
