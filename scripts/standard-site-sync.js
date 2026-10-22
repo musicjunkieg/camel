@@ -82,7 +82,13 @@ function collectPosts(siteMetadata) {
 				})
 			};
 		})
-		.filter(function (post) { return post.publishedAt <= now; });
+		// Same rule camel.js uses to hide scheduled posts: the folder's day
+		// (local midnight) must not be in the future. A post visible on the
+		// site must have a record, or its <link> tag points at nothing.
+		.filter(function (post) {
+			var parts = /posts\/(\d{4})\/(\d{1,2})\/(\d{1,2})\//.exec(post.file);
+			return new Date(parts[1], parts[2] - 1, parts[3]) <= now;
+		});
 }
 
 // Reads a post's @@ Image. Paths on this site come from public/, since the
