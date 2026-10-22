@@ -183,6 +183,24 @@ test('publishes posts whose folder day has arrived, like camel.js shows them', a
 	assert.ok(!paths.includes('/' + folder(tomorrow) + '/tomorrow'));
 });
 
+test('--release still fails on safety errors', async function (t) {
+	// A publication owned by a different account than the one logging in.
+	var env = await setUp(t, { publication: 'at://did:plc:someoneelse/site.standard.publication/3lwafzkjqm25s' });
+	var mismatch = await helpers.runSync(env.site, ['--release'], syncEnv(env.pds));
+	assert.strictEqual(mismatch.code, 1);
+	assert.match(mismatch.output, /belongs to did:plc:someoneelse/);
+
+	// Every post gone while records still exist: refuse to delete them all.
+	var empty = await setUp(t);
+	await helpers.runSync(empty.site, [], syncEnv(empty.pds));
+	require('fs').rmSync(require('path').join(empty.site.dir, 'posts', '2014'), { recursive: true });
+	require('fs').rmSync(require('path').join(empty.site.dir, 'posts', '2015'), { recursive: true });
+	var guard = await helpers.runSync(empty.site, ['--release'], syncEnv(empty.pds));
+	assert.strictEqual(guard.code, 1);
+	assert.match(guard.output, /refusing to delete them all/);
+	assert.strictEqual(empty.pds.documents().length, 2);
+});
+
 test('--dry-run writes nothing', async function (t) {
 	var env = await setUp(t);
 	var result = await helpers.runSync(env.site, ['--dry-run'], syncEnv(env.pds));

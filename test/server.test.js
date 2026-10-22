@@ -44,6 +44,18 @@ test('with a publication: verification route and link tags', async function (t) 
 	}
 });
 
+test('a scheduled post reachable by URL has no document link yet', async function (t) {
+	var site = helpers.makeSite({ publication: helpers.PUBLICATION_URI });
+	site.writePost('2999/1/1/future.md', '@@ Title=Future\n@@ Date=2999-01-01 09:00\n\nLater.\n');
+	var server = await helpers.startServer(site);
+	t.after(function () { server.stop(); site.remove(); });
+
+	var html = await (await fetch(server.url + '/2999/1/1/future')).text();
+	assert.match(html, /Later\./);
+	assert.ok(html.includes('rel="site.standard.publication"'));
+	assert.ok(!html.includes('rel="site.standard.document"'));
+});
+
 test('posts are grouped by their own day, and future posts stay hidden', async function (t) {
 	var site = helpers.makeSite();
 	site.writePost('2999/1/1/future.md', '@@ Title=Future\n@@ Date=2999-01-01 09:00\n\nLater.\n');
