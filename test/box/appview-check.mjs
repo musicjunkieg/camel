@@ -18,8 +18,12 @@ const check = (ok, label) => {
 
 const records = new Map()
 for (const collection of ['site.standard.publication', 'site.standard.document']) {
-  const res = await (await fetch(`${pds}/xrpc/com.atproto.repo.listRecords?repo=${did}&collection=${collection}`)).json()
-  for (const r of res.records) records.set(r.uri, { record: jsonToLex(r.value), cid: r.cid })
+  let cursor = ''
+  do {
+    const res = await (await fetch(`${pds}/xrpc/com.atproto.repo.listRecords?repo=${did}&collection=${collection}&limit=100${cursor ? `&cursor=${cursor}` : ''}`)).json()
+    for (const r of res.records) records.set(r.uri, { record: jsonToLex(r.value), cid: r.cid })
+    cursor = res.cursor
+  } while (cursor)
 }
 
 for (const [uri, info] of records) {

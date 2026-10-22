@@ -16,7 +16,13 @@ check(pubUri.startsWith('at://did:'), '.well-known returns ' + pubUri);
 const pub = await (await fetch(`${pds}/xrpc/com.atproto.repo.getRecord?repo=${did}&collection=site.standard.publication&rkey=${pubRkey}`)).json();
 check(pub.value?.url === blog, 'publication.url is ' + pub.value?.url);
 
-const list = await (await fetch(`${pds}/xrpc/com.atproto.repo.listRecords?repo=${did}&collection=site.standard.document`)).json();
+const list = { records: [] };
+let cursor = '';
+do {
+	const page = await (await fetch(`${pds}/xrpc/com.atproto.repo.listRecords?repo=${did}&collection=site.standard.document&limit=100${cursor ? `&cursor=${cursor}` : ''}`)).json();
+	list.records.push(...page.records);
+	cursor = page.cursor;
+} while (cursor);
 // Earlier runs with the same account leave records under other publications.
 list.records = list.records.filter((rec) => rec.value.site === pubUri);
 check(list.records.length === expected, list.records.length + ' document records on the PDS (expected ' + expected + ')');
