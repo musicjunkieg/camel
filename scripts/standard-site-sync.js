@@ -77,7 +77,7 @@ function collectPosts(siteMetadata) {
 				publishedAt: publishedAt,
 				// The site-wide default image isn't a cover for every post.
 				image: metadata.Image && metadata.Image !== siteMetadata.Image ? metadata.Image.trim() : '',
-				rkey: standardSite.documentRkey(publishedAt, metadata.relativeLink),
+				rkey: standardSite.documentRkey(siteMetadata.StandardSitePublication, publishedAt, metadata.relativeLink),
 				record: standardSite.buildDocument({
 					publicationUri: siteMetadata.StandardSitePublication.trim(),
 					title: metadata.Title,
