@@ -170,7 +170,8 @@ test('publishes posts whose folder day has arrived, like camel.js shows them', a
 	var env = await setUp(t);
 	var pad = function (n) { return String(n).padStart(2, '0'); };
 	var today = new Date();
-	var tomorrow = new Date(today.getTime() + 86400000);
+	var tomorrow = new Date(today);
+	tomorrow.setDate(today.getDate() + 1);
 	var folder = function (d) { return d.getFullYear() + '/' + (d.getMonth() + 1) + '/' + d.getDate(); };
 	var stamp = function (d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); };
 	// Later today: camel.js already shows it, so it needs a record now.
