@@ -249,7 +249,7 @@ other URLs are downloaded. Covers must be PNG, JPEG, GIF or WebP and at most 1 M
 An image is only uploaded again when it changes. The site-wide `@@ Image` in
 `defaultTags.html` is not used as a cover.
 
-Each record's key is derived from the post's date and URL. Changing either one replaces
+Each record's key is derived from the publication and the post's date and URL. Changing either one replaces
 the record with a new one, which breaks existing Bluesky embeds of that post.
 
 
