@@ -234,6 +234,9 @@ author.
    (the `release` line in `Procfile`); there, login or PDS errors only log a warning so
    they can't block a deploy, but invalid posts still fail it. Use `--dry-run` to see
    what would change.
+5. If you schedule posts (a post in a future day's folder), also run
+   `npm run standard-site:sync` once a day, for example with Heroku Scheduler. A
+   scheduled post appears on its day, but it only gets its record at the next sync.
 
 Once `StandardSitePublication` is set, Camel serves `/.well-known/site.standard.publication`
 and adds the verification `<link>` tags to each page's `<head>`.
