@@ -20,7 +20,10 @@ if (!urls.length) {
 
 for (const url of urls) {
 	console.log('== ' + url);
-	const html = await (await fetch(url)).text();
+	const page = await fetch(url);
+	check(page.ok, 'page answered ' + page.status);
+	if (!page.ok) continue;
+	const html = await page.text();
 	const canonicalUri = html.match(/<link rel="site.standard.document" href="([^"]+)"/)?.[1];
 	check(!!canonicalUri, 'page links its document record: ' + canonicalUri);
 	if (!canonicalUri) continue;
