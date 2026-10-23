@@ -12,7 +12,13 @@ const check = (ok, label) => {
 	if (!ok) failures++;
 };
 
-for (const url of process.argv.slice(2)) {
+const urls = process.argv.slice(2);
+if (!urls.length) {
+	console.error('Usage: node test/card-check.mjs <post url> [<post url> ...]');
+	process.exit(2);
+}
+
+for (const url of urls) {
 	console.log('== ' + url);
 	const html = await (await fetch(url)).text();
 	const canonicalUri = html.match(/<link rel="site.standard.document" href="([^"]+)"/)?.[1];
