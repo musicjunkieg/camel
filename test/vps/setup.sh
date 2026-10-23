@@ -31,7 +31,8 @@ step() { printf '\n== %s\n' "$1"; }
 
 step "Installing Node 22, Caddy and git"
 export DEBIAN_FRONTEND=noninteractive
-if ! node --version 2>/dev/null | grep -qE '^v(2[2-9]|[3-9][0-9])'; then
+# 22.2 is the first release with zlib.crc32, which the cover image below uses.
+if ! node -e 'var v = process.versions.node.split(".").map(Number); process.exit(v[0] > 22 || (v[0] === 22 && v[1] >= 2) ? 0 : 1)' 2>/dev/null; then
 	curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
 	apt-get install -y nodejs
 fi
@@ -39,6 +40,7 @@ apt-get install -y git caddy
 
 step "Fetching Camel ($BRANCH)"
 if [ -d "$DIR/.git" ]; then
+	git -C "$DIR" remote set-url origin "$REPO"
 	git -C "$DIR" fetch -q origin "$BRANCH"
 	git -C "$DIR" checkout -q -- templates/defaultTags.html posts/2014/5/1/sample-post.md
 	git -C "$DIR" checkout -q -B "$BRANCH" "origin/$BRANCH"
