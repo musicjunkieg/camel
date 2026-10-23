@@ -125,6 +125,21 @@ test('validateDocument reports missing content instead of throwing', function ()
 	});
 });
 
+test('validateDocument explains a Date that a record key cannot hold', function () {
+	['2999-05-01T00:00:00.000Z', '1014-05-01T00:00:00.000Z'].forEach(function (date) {
+		var rkey = standardSite.documentRkey(helpers.PUBLICATION_URI, new Date(date), '/a');
+		var errors = standardSite.validateDocument({
+			site: helpers.PUBLICATION_URI, title: 'T', path: '/a', publishedAt: date,
+			content: { $type: 'at.markpub.markdown', text: { markdown: '' } }
+		}, rkey);
+		assert.ok(errors.some(function (error) { return error.indexOf(date + ' is outside 1970 to 2255') !== -1; }), errors.join('; '));
+	});
+	assert.deepStrictEqual(standardSite.validateDocument({
+		site: helpers.PUBLICATION_URI, title: 'T', path: '/a', publishedAt: '2255-01-01T00:00:00.000Z',
+		content: { $type: 'at.markpub.markdown', text: { markdown: '' } }
+	}, '3khuwc44cas67'), []);
+});
+
 test('validateDocument enforces the lexicon length limits', function () {
 	var record = standardSite.buildDocument({
 		publicationUri: helpers.PUBLICATION_URI, title: 'x'.repeat(501), path: '/a',
