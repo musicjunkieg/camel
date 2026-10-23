@@ -4,20 +4,24 @@
 # account, and asks Bluesky's AppView whether a post gets an enhanced card.
 #
 # Run as root on the new server:
-#   curl -fsSL https://raw.githubusercontent.com/musicjunkieg/camel/claude/standard-site-integration/test/vps/setup.sh -o setup.sh
+#   curl -fsSL https://raw.githubusercontent.com/cliss/camel/master/test/vps/setup.sh -o setup.sh
 #   bash setup.sh
+#
+# To test a fork or branch instead, fetch setup.sh from it and set REPO and
+# BRANCH, for example REPO=https://github.com/you/camel.git BRANCH=my-branch.
 #
 # It asks for the test account's handle and app password and stores them in
 # /opt/camel/.env (mode 600). Re-running it is safe.
 #
 # Environment:
 #   SITE_HOST  public host name (default: <ip>.sslip.io, which points at this server)
-#   BRANCH     branch to deploy (default claude/standard-site-integration)
+#   REPO       repository to deploy (default https://github.com/cliss/camel.git)
+#   BRANCH     branch to deploy (default master)
 
 set -euo pipefail
 
-REPO=https://github.com/musicjunkieg/camel.git
-BRANCH=${BRANCH:-claude/standard-site-integration}
+REPO=${REPO:-https://github.com/cliss/camel.git}
+BRANCH=${BRANCH:-master}
 DIR=/opt/camel
 IP=$(hostname -I | awk '{print $1}')
 SITE_HOST=${SITE_HOST:-${IP//./-}.sslip.io}
