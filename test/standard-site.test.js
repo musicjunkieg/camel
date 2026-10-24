@@ -69,6 +69,10 @@ test('parseAtUri accepts at:// URIs and rejects anything else', function () {
 	});
 	assert.strictEqual(standardSite.parseAtUri(''), null);
 	assert.strictEqual(standardSite.parseAtUri('https://example.com'), null);
+	assert.ok(standardSite.parseAtUri('at://did:web:localhost%3A3000/site.standard.publication/3lwafzkjqm25s'));
+	['did:plc:abc:', 'did:plc:abc%', 'did:plc:a%zz'].forEach(function (did) {
+		assert.strictEqual(standardSite.parseAtUri('at://' + did + '/site.standard.publication/3lwafzkjqm25s'), null, did);
+	});
 });
 
 test('linkTags emits nothing until a publication is configured', function () {
